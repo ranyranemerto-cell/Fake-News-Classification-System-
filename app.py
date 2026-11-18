@@ -1,15 +1,6 @@
-
-# ============================================================
-# FAKE NEWS CLASSIFICATION SYSTEM
-# Streamlit Web Application
-# ============================================================
-
 import streamlit as st
 import joblib
-
-# ------------------------------------------------------------
-# 1. PAGE CONFIGURATION
-# ------------------------------------------------------------
+import pandas as pd
 
 st.set_page_config(
     page_title="Fake News Classification System",
@@ -17,9 +8,19 @@ st.set_page_config(
     layout="centered"
 )
 
-# ------------------------------------------------------------
-# 2. LOAD TRAINED MODEL AND VECTORIZER
-# ------------------------------------------------------------
+st.markdown("""
+    <style>
+    .stButton>button {
+        width: 100%;
+        background-color: #ff4b4b;
+        color: white;
+        border-radius: 8px;
+    }
+    .stButton>button:hover {
+        background-color: #ff6b6b;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 @st.cache_resource
 def load_model():
@@ -30,14 +31,8 @@ def load_model():
 try:
     model, tfidf = load_model()
 except FileNotFoundError:
-    st.error(
-        "Model files not found. Please run train_model.py first."
-    )
+    st.error("Model files not found. Please run train_model.py first.")
     st.stop()
-
-# ------------------------------------------------------------
-# 3. APPLICATION HEADER
-# ------------------------------------------------------------
 
 st.title("📰 Fake News Classification System")
 
@@ -46,11 +41,12 @@ st.write(
     "application that classifies news articles as REAL or FAKE."
 )
 
-st.divider()
+st.info(
+    "ℹ️ Note: This model detects writing patterns associated with fake news. "
+    "It does not verify the absolute factual truth of the content."
+)
 
-# ------------------------------------------------------------
-# 4. USER INPUT
-# ------------------------------------------------------------
+st.divider()
 
 st.subheader("Enter News Article")
 
@@ -65,63 +61,57 @@ news_text = st.text_area(
     height=250
 )
 
-# ------------------------------------------------------------
-# 5. PREDICTION
-# ------------------------------------------------------------
+col1, col2 = st.columns([3, 1])
 
-if st.button("Classify News", type="primary", use_container_width=True):
+with col1:
+    classify_button = st.button("Classify News", type="primary", use_container_width=True)
 
+with col2:
+    clear_button = st.button("Clear", use_container_width=True)
+
+if clear_button:
+    st.rerun()
+
+if classify_button:
     if not news_title.strip() and not news_text.strip():
         st.warning("Please enter a news title or article.")
-
     else:
-        # Combine title and article text.
-        # This follows the same format used during training.
         combined_text = news_title + " " + news_text
-
-        # Transform input using the saved TF-IDF vectorizer
         input_tfidf = tfidf.transform([combined_text])
-
-        # Generate prediction
         prediction = model.predict(input_tfidf)[0]
 
-        # Get prediction confidence
         probabilities = model.predict_proba(input_tfidf)[0]
-        predicted_index = list(model.classes_).index(prediction)
-        confidence = probabilities[predicted_index] * 100
+        class_labels = model.classes_
+        proba_dict = dict(zip(class_labels, probabilities))
 
-        # Display result
         st.divider()
         st.subheader("Classification Result")
 
         if prediction == 0:
             st.error("🚨 FAKE NEWS")
-            st.write(
-                "The model classified this article as FAKE."
-            )
-
+            st.write("The model classified this article as **FAKE**.")
         else:
             st.success("📰 REAL NEWS")
-            st.write(
-                "The model classified this article as REAL."
-            )
+            st.write("The model classified this article as **REAL**.")
 
-        st.metric(
-            label="Prediction Confidence",
-            value=f"{confidence:.2f}%"
-        )
+        st.write("### Probability Breakdown")
 
-        st.progress(float(confidence / 100))
+        proba_df = pd.DataFrame({
+            "Classification": ["FAKE", "REAL"],
+            "Probability (%)": [proba_dict.get(0, 0) * 100, proba_dict.get(1, 0) * 100]
+        })
+
+        st.write(f"**FAKE:** {proba_dict.get(0, 0) * 100:.2f}%")
+        st.progress(float(proba_dict.get(0, 0)))
+
+        st.write(f"**REAL:** {proba_dict.get(1, 0) * 100:.2f}%")
+        st.progress(float(proba_dict.get(1, 0)))
 
         st.caption(
             "Confidence represents the model's estimated "
             "probability for its predicted class. It does not "
             "guarantee that the article is factually true or false."
         )
-
-# ------------------------------------------------------------
-# 6. DISCLAIMER
-# ------------------------------------------------------------
 
 st.divider()
 
