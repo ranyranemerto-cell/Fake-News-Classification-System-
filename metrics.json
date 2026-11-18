@@ -1,0 +1,31 @@
+{
+  "best_model": "Logistic Regression",
+  "comparison": [
+    {
+      "Model": "Multinomial Naive Bayes",
+      "Accuracy": 0.9008,
+      "Precision": 0.8756,
+      "Recall": 0.9048,
+      "F1-Score": 0.8899
+    },
+    {
+      "Model": "Logistic Regression",
+      "Accuracy": 0.9618,
+      "Precision": 0.9627,
+      "Recall": 0.9507,
+      "F1-Score": 0.9567
+    }
+  ],
+  "confusion_matrix": [
+    [
+      6721,
+      203
+    ],
+    [
+      272,
+      5242
+    ]
+  ],
+  "train_size": 49748,
+  "test_size": 12438
+}

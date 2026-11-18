@@ -1,4 +1,3 @@
-
 import pandas as pd
 
 # ==========================================
@@ -72,8 +71,12 @@ conflicting_labels = (
 print("Texts with Conflicting Labels:", conflicting_labels)
 
 # ==========================================
-# 7. REMOVE DUPLICATE TEXT CONTENT
+# 7. REMOVE CONFLICTING LABELS AND DUPLICATES
 # ==========================================
+
+label_counts = df_cleaned.groupby("text")["label"].nunique()
+conflicting_texts = label_counts[label_counts > 1].index
+df_cleaned = df_cleaned[~df_cleaned["text"].isin(conflicting_texts)]
 
 df_cleaned = df_cleaned.drop_duplicates(
     subset=["text"],
@@ -131,5 +134,5 @@ df_cleaned.to_csv(
 
 print("\nCleaned dataset saved as WELFake_Cleaned.csv")
 
-print("\nDataset verification completed successfully!")
+print("\nDataset verification completed.")
 print("=" * 50)

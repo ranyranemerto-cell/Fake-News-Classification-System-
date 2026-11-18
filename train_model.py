@@ -1,9 +1,9 @@
-
 # ============================================================
 # FAKE NEWS CLASSIFICATION SYSTEM
 # Model Training and Evaluation
 # ============================================================
-
+import json
+import numpy as np
 import pandas as pd
 import joblib
 
@@ -30,10 +30,9 @@ print("======================================")
 
 df = pd.read_csv("WELFake_Cleaned.csv")
 
-print("\nDataset loaded successfully!")
+print("\nDataset loaded")
 print("Dataset shape:", df.shape)
 
-# Check required columns
 required_columns = ["title", "text", "label"]
 
 for column in required_columns:
@@ -44,17 +43,14 @@ for column in required_columns:
 # 2. PREPARE INPUT FEATURES AND TARGET
 # ------------------------------------------------------------
 
-# Combine news title and article text
 df["content"] = (
     df["title"].fillna("").astype(str)
     + " "
     + df["text"].fillna("").astype(str)
 )
 
-# Input feature
 X = df["content"]
 
-# Target variable
 y = df["label"]
 
 print("\nInput features: News Title and Text")
@@ -100,6 +96,26 @@ print("Training matrix:", X_train_tfidf.shape)
 print("Testing matrix:", X_test_tfidf.shape)
 
 # ------------------------------------------------------------
+# NEAR-DUPLICATE CHECK (train vs test)
+# ------------------------------------------------------------
+
+print("\nChecking near-duplicates between train and test...")
+
+rng = np.random.RandomState(42)
+idx = rng.choice(X_test_tfidf.shape[0], size=2000, replace=False)
+sample = X_test_tfidf[idx]
+
+max_sims = []
+for i in range(0, sample.shape[0], 250):
+    sims = (sample[i:i + 250] @ X_train_tfidf.T).toarray()
+    max_sims.extend(sims.max(axis=1))
+max_sims = np.array(max_sims)
+
+for thr in (0.80, 0.90, 0.95):
+    pct = (max_sims >= thr).mean() * 100
+    print(f"Test articles with similarity >= {thr:.2f} to a training article: {pct:.2f}%")
+
+# ------------------------------------------------------------
 # 5. INITIALIZE MACHINE LEARNING MODELS
 # ------------------------------------------------------------
 
@@ -125,13 +141,10 @@ for model_name, model in models.items():
     print("Training:", model_name)
     print("======================================")
 
-    # Train model
     model.fit(X_train_tfidf, y_train)
 
-    # Generate predictions
     y_pred = model.predict(X_test_tfidf)
 
-    # Calculate evaluation metrics
     accuracy = accuracy_score(y_test, y_pred)
     precision = precision_score(
         y_test, y_pred, zero_division=0
@@ -143,7 +156,6 @@ for model_name, model in models.items():
         y_test, y_pred, zero_division=0
     )
 
-    # Display results
     print("\nModel Performance:")
     print(f"Accuracy:  {accuracy:.4f}")
     print(f"Precision: {precision:.4f}")
@@ -155,7 +167,7 @@ for model_name, model in models.items():
         classification_report(
             y_test,
             y_pred,
-            target_names=["FAKE", "REAL"],
+            target_names=["REAL", "FAKE"],
             zero_division=0
         )
     )
@@ -163,7 +175,6 @@ for model_name, model in models.items():
     print("Confusion Matrix:")
     print(confusion_matrix(y_test, y_pred))
 
-    # Store results
     results.append({
         "Model": model_name,
         "Accuracy": accuracy,
@@ -213,4 +224,24 @@ print("======================================")
 print("Saved model: fake_news_model.joblib")
 print("Saved vectorizer: tfidf_vectorizer.joblib")
 
-print("\nModel training and evaluation completed successfully!")
+print("\nModel training and evaluation completed.")
+
+# ------------------------------------------------------------
+# SAVE METRICS FOR THE APP
+# ------------------------------------------------------------
+
+y_pred_best = best_model.predict(X_test_tfidf)
+cm = confusion_matrix(y_test, y_pred_best)
+
+metrics = {
+    "best_model": best_model_name,
+    "comparison": results_df.round(4).to_dict(orient="records"),
+    "confusion_matrix": cm.tolist(),
+    "train_size": len(X_train),
+    "test_size": len(X_test),
+}
+
+with open("metrics.json", "w") as f:
+    json.dump(metrics, f, indent=2)
+
+print("Saved metrics: metrics.json")
